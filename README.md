@@ -7,13 +7,16 @@ AMM Volume Bot is a simple automated market maker (AMM) volumizer that executes 
 ## 🌟 Features
 
 - 🔄 Alternates between buying and selling tokens
-- ⏱️ Configurable trade intervals
+- ⏱️ Configurable trade intervals (15-35 minutes by default)
 - 💰 Dynamic calculation of trade amounts using Gaussian distribution
 - 📈 Supports multiple DEX platforms
 - 📧 Email reporting (optional)
 - 📱 Telegram reporting (optional)
 - 💾 Persistent trade data storage
 - 🎯 Configurable strategy bias for long-term token accumulation or ETH profit
+- 🔁 Auto-retry mechanism for failed transactions
+- 📊 Enhanced error handling and logging
+- 🚀 Easy deployment to Railway.app
 
 ## 🛠️ Installation
 
@@ -49,84 +52,70 @@ USER_ADDRESS="Your_Wallet_Address"
 USER_PRIVATE_KEY="Your_Private_Key"
 
 # =========
-# = DEX =
+# = TOKEN =
 # =========
-TARGET_TOKEN="Token_Address"
-WETH="Wrapped_ETH_Address"
-USDT="USDT_Address"
-ROUTER="Router_Contract_Address"
+TARGET_TOKEN="Token_Contract_Address"
+WETH="Wrapped_Native_Token_Address"
+ROUTER="DEX_Router_Address"
 
-# =========
-# = OPTIONS =
-# =========
-SEND_EMAIL_REPORT=false
-SEND_TELEGRAM_REPORT=true
-
-# =========
-# = EMAIL =
-# =========
-RECIPIENT="recipient@example.com"
-EMAIL_ADDR="your_email@example.com"
-EMAIL_PW="your_email_password"
-
-# =========
-# = TELEGRAM BOT =
-# =========
-TELEGRAM_CHAT_ID="Your_Chat_ID"
-TELEGRAM_THREAD_ID="Your_Thread_ID"
-TELEGRAM_BOT_TOKEN="Your_Bot_Token"
-
-# =========
-# = TRADE SETTINGS =
-# =========
-TX_DELAY_MIN=60
-TX_DELAY_MAX=120
-MIN_AMT=0.001
-BUY_AMT_MEAN=0.01
-BUY_AMT_STD_DEV=0.01
-STRATEGY_BIAS=0
+# ===========
+# = TRADING =
+# ===========
+TX_DELAY_MIN=15  # Minimum delay between trades in minutes
+TX_DELAY_MAX=35  # Maximum delay between trades in minutes
 ```
 
-### 🔑 Configuration Details:
+## 🚀 Deployment
 
-- `RPC_URL`: The RPC endpoint for the blockchain you're interacting with.
-- `USER_ADDRESS` & `USER_PRIVATE_KEY`: Your wallet address and private key.
-- `TARGET_TOKEN`, `WETH`, `USDT`, `ROUTER`: Addresses for the tokens and router contract you're trading with.
-- `SEND_EMAIL_REPORT` & `SEND_TELEGRAM_REPORT`: Set to `true` or `false` to enable/disable reporting methods.
-- Email and Telegram settings: Fill these if you've enabled the respective reporting methods.
-- `TX_DELAY_MIN` & `TX_DELAY_MAX`: Minimum and maximum delay between trades (in minutes).
-- `MIN_AMT`: Minimum amount for each trade (in ETH).
-- `BUY_AMT_MEAN`: Mean amount for the Gaussian distribution (in ETH).
-- `BUY_AMT_STD_DEV`: Standard deviation for the Gaussian distribution (in ETH).
-- `STRATEGY_BIAS`: Percentage bias for long-term strategy (-100 to 100, where negative values favor token accumulation and positive values favor ETH profit).
+### Local Deployment
 
-## 🚀 Usage
-
-To start the bot, run:
-
-```
-node index.js
+Run the bot locally using:
+```bash
+npm start
 ```
 
-The bot will start executing trades based on your configuration.
+### Railway Deployment (Recommended)
 
-## 📊 Trade Amount Calculation
+1. Create an account on [Railway.app](https://railway.app/)
+2. Connect your GitHub account
+3. Create a new project and select "Deploy from GitHub repo"
+4. Select your AMM-Volume-Bot repository
+5. Add the following environment variables in Railway dashboard:
+   - USER_ADDRESS
+   - USER_PRIVATE_KEY
+   - RPC_URL
+   - TARGET_TOKEN
+   - WETH
+   - ROUTER
+   - TX_DELAY_MIN
+   - TX_DELAY_MAX
+6. Railway will automatically deploy your bot
 
-The bot uses a Gaussian (normal) distribution to determine trade amounts. This provides a more natural variation in trade sizes while still clustering around a defined mean value. The `BUY_AMT_MEAN` and `BUY_AMT_STD_DEV` parameters control this distribution.
+⚠️ **Security Note**: Never share your private key. Use a dedicated wallet with only the necessary funds for trading.
 
-## 🎯 Strategy Bias
+## 📈 Trading Strategy
 
-The `STRATEGY_BIAS` setting allows you to influence the long-term behavior of the bot:
-- Positive values (0 to 100) will gradually increase sell amounts and decrease buy amounts, favoring ETH profit.
-- Negative values (-100 to 0) will gradually increase buy amounts and decrease sell amounts, favoring token accumulation.
-- A value of 0 maintains a neutral strategy.
+The bot implements a simple but effective trading strategy:
+1. Executes buys and sells at random intervals (15-35 minutes)
+2. Uses small trade amounts to minimize price impact
+3. Maintains persistent state to resume operations after restarts
+4. Implements retry mechanism for failed transactions
+5. Logs all operations for monitoring
 
-## ⚠️ Important Notes
+## 🔍 Monitoring
 
-- Ensure you have sufficient token balance and have granted necessary approvals to the router contract.
-- Keep your private key secure and never share it publicly.
-- This bot is for educational purposes. Use at your own risk in production environments.
-- The strategy bias feature provides a gradual influence over time. It does not guarantee profits or specific outcomes.
+- Check the Railway.app dashboard for logs and performance
+- Enable email notifications for important events
+- Use Telegram notifications for real-time updates
+- Monitor the `next.json` file for scheduling information
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 📜 License
 

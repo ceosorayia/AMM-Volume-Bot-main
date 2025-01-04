@@ -173,7 +173,7 @@ const TRADE_CONFIG = {
   BUY: {
     SPLITS: 3,                    // 3 achats stratégiques
     BASE_PERCENTAGE: 0.018,       // 1.8% par achat (5.4% total)
-    DELAY_RANGE: [300, 900],      // 5-15 minutes entre achats
+    DELAY_RANGE: [15, 35],        // 15-35 minutes entre achats
     GAS_THRESHOLD: "MEDIUM_LOW",  // Exécuter quand gas raisonnable
     TIMING: "SMART",             // Après mini-dips ou stagnation
     SLIPPAGE: 40                 // Garder le même slippage pour sécurité
@@ -181,7 +181,7 @@ const TRADE_CONFIG = {
   SELL: {
     SPLITS: 1,                    // Une seule vente consolidée
     SIZE_MULTIPLIER: 1.0,         // Exactement égal aux achats (5.4%)
-    DELAY_RANGE: [300, 900],      // 5-15 minutes après dernier achat
+    DELAY_RANGE: [15, 35],        // 15-35 minutes après dernier achat
     GAS_THRESHOLD: "ANY",         // Exécuter quand nécessaire
     TIMING: "OFF_PEAK",          // Pendant périodes calmes
     SLIPPAGE: 40                 // Garder le même slippage pour sécurité
@@ -402,13 +402,14 @@ async function sellTokensCreateVolume() {
 async function AMMTrade() {
   console.log('--- AMMTrade Start ---');
   
-  const initialized = await initializeContracts();
-  if (!initialized) {
-    console.error('Failed to initialize contracts');
-    return;
-  }
-  
   try {
+    const initialized = await initializeContracts();
+    if (!initialized) {
+      console.error('Failed to initialize contracts');
+      scheduleRetry(5); // Retry in 5 minutes if initialization fails
+      return;
+    }
+    
     // Check token balance
     const tokenBalance = await getTokenBalance();
     console.log(`Current token balance: ${tokenBalance} tokens`);
@@ -416,7 +417,7 @@ async function AMMTrade() {
     // Initial buy if needed
     if (tokenBalance < MIN_AMT) {
       console.log('Not enough tokens, performing initial buy...');
-      const initialBuyAmount = (BUY_AMT_MEAN * 3).toFixed(8); // Larger initial buy
+      const initialBuyAmount = (BUY_AMT_MEAN * 3).toFixed(8);
       
       const success = await swapExactETHForTokensWithRetry(
         initialBuyAmount,
@@ -424,8 +425,8 @@ async function AMMTrade() {
       );
       
       if (!success) {
-        console.log('Initial buy failed, retrying in 2 minutes');
-        setTimeout(AMMTrade, 2 * 60 * 1000);
+        console.log('Initial buy failed');
+        scheduleRetry(5);
         return;
       }
       console.log('Initial buy successful!');
@@ -435,18 +436,50 @@ async function AMMTrade() {
     // Determine action based on last trade
     const shouldBuy = STATE.lastAction !== 'buy';
     const success = shouldBuy ? await buyTokensCreateVolume() : await sellTokensCreateVolume();
-
-    // Schedule next trade
-    const minDelay = TRADE_CONFIG.BUY.DELAY_RANGE[0];
-    const maxDelay = TRADE_CONFIG.BUY.DELAY_RANGE[1];
-    const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
     
-    console.log(`Scheduling next trade in ${delay} minutes`);
-    setTimeout(AMMTrade, delay * 60 * 1000);
+    if (!success) {
+      console.error('Trade failed');
+      scheduleRetry(5);
+      return;
+    }
+
+    // Schedule next trade using node-schedule
+    const minDelay = shouldBuy ? TRADE_CONFIG.BUY.DELAY_RANGE[0] : TRADE_CONFIG.SELL.DELAY_RANGE[0];
+    const maxDelay = shouldBuy ? TRADE_CONFIG.BUY.DELAY_RANGE[1] : TRADE_CONFIG.SELL.DELAY_RANGE[1];
+    const delayMinutes = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
+    
+    const nextTradeDate = new Date(Date.now() + delayMinutes * 60 * 1000);
+    console.log(`Scheduling next trade for ${nextTradeDate.toISOString()}`);
+    
+    // Store next trade time
+    await storeData({ nextTrade: nextTradeDate.toISOString(), lastAction: STATE.lastAction });
+    
+    // Schedule next trade
+    scheduler.scheduleJob(nextTradeDate, AMMTrade);
     
   } catch (error) {
     console.error('Trade error:', error);
-    setTimeout(AMMTrade, 2 * 60 * 1000);
+    scheduleRetry(5);
+  }
+}
+
+// Helper function to schedule retries
+function scheduleRetry(minutes) {
+  const retryDate = new Date(Date.now() + minutes * 60 * 1000);
+  console.log(`Scheduling retry for ${retryDate.toISOString()}`);
+  scheduler.scheduleJob(retryDate, AMMTrade);
+}
+
+// Update storeData function to accept custom data
+async function storeData(customData = {}) {
+  try {
+    const data = {
+      count: trades.count,
+      ...customData
+    };
+    await fs.promises.writeFile('./next.json', JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error storing data:', error);
   }
 }
 
@@ -756,14 +789,15 @@ const todayDate = () => {
 };
 
 // Data Storage Function
-const storeData = async () => {
-  const data = JSON.stringify(trades, null, 2); // Pretty print JSON
+const storeData = async (customData = {}) => {
   try {
-    await fs.promises.writeFile("./next.json", data);
-    console.log("Data stored successfully:");
-    console.log(trades);
-  } catch (err) {
-    console.error("Error storing data:", err);
+    const data = {
+      count: trades.count,
+      ...customData
+    };
+    await fs.promises.writeFile('./next.json', JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error storing data:', error);
   }
 };
 
